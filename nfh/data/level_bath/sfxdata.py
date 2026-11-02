@@ -1,0 +1,43 @@
+# -*- coding: utf-8 -*-
+# Generated from sfxdata.xml by tools/xml2py.py - do not edit by hand.
+from nfh.node import n
+
+ROOTS = [
+    n('sfxdata', {}, [
+        n('sfx', {'file': 'sfx/give_take1.wav'}),
+        n('sfx', {'file': 'sfx/give_take1.wav'}),
+        n('sfx', {'file': 'sfx/give_take2.wav'}),
+        n('sfx', {'file': 'sfx/na_aaa_hurt1.wav'}),
+        n('sfx', {'file': 'sfx/na_brrr1.wav'}),
+        n('sfx', {'file': 'sfx/na_desperate1.wav'}),
+        n('sfx', {'file': 'sfx/na_hmpf1.wav'}),
+        n('sfx', {'file': 'sfx/na_hmpf2.wav'}),
+        n('sfx', {'file': 'sfx/na_huh1.wav'}),
+        n('sfx', {'file': 'sfx/na_np_rustle1.wav'}),
+        n('sfx', {'file': 'sfx/na_np_rustle1a.wav'}),
+        n('sfx', {'file': 'sfx/na_puke1.wav'}),
+        n('sfx', {'file': 'sfx/na_pulls1.wav'}),
+        n('sfx', {'file': 'sfx/na_rip_hat2.wav'}),
+        n('sfx', {'file': 'sfx/na_run1.wav'}),
+        n('sfx', {'file': 'sfx/na_run2.wav'}),
+        n('sfx', {'file': 'sfx/na_shock_bah1.wav'}),
+        n('sfx', {'file': 'sfx/na_shock_bah1.wav'}),
+        n('sfx', {'file': 'sfx/na_shower1.wav'}),
+        n('sfx', {'file': 'sfx/na_shower2.wav'}),
+        n('sfx', {'file': 'sfx/na_singin2.wav'}),
+        n('sfx', {'file': 'sfx/na_slip_up1.wav'}),
+        n('sfx', {'file': 'sfx/na_sup_huh1.wav', 'volume': '70'}),
+        n('sfx', {'file': 'sfx/na_sup_huh2.wav'}),
+        n('sfx', {'file': 'sfx/na_towel1.wav', 'volume': '60'}),
+        n('sfx', {'file': 'sfx/na_towel2.wav', 'volume': '60'}),
+        n('sfx', {'file': 'sfx/obj_bath.wav', 'volume': '40'}),
+        n('sfx', {'file': 'sfx/obj_bath_out1.wav'}),
+        n('sfx', {'file': 'sfx/obj_close1.wav'}),
+        n('sfx', {'file': 'sfx/obj_micro_beep1.wav'}),
+        n('sfx', {'file': 'sfx/obj_mixer1.wav', 'volume': '60'}),
+        n('sfx', {'file': 'sfx/obj_open1.wav'}),
+        n('sfx', {'file': 'sfx/wod_step1a.wav'}),
+        n('sfx', {'file': 'sfx/wod_step2a.wav'}),
+        n('sfx', {'file': 'sfx/obj_toi_flush11.wav'}),
+    ]),
+]
