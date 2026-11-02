@@ -1,0 +1,42 @@
+# -*- coding: utf-8 -*-
+# Generated from sfxdata.xml by tools/xml2py.py - do not edit by hand.
+from nfh.node import n
+
+ROOTS = [
+    n('sfxdata', {}, [
+        n('sfx', {'file': 'sfx/na_fart1.wav'}),
+        n('sfx', {'file': 'sfx/na_fart2.wav'}),
+        n('sfx', {'file': 'sfx/na_shitting1.wav'}),
+        n('sfx', {'file': 'sfx/na_shit_press1.wav'}),
+        n('sfx', {'file': 'sfx/na_shit_ah1.wav'}),
+        n('sfx', {'file': 'sfx/na_np_rustle1a.wav'}),
+        n('sfx', {'file': 'sfx/na_huh2.wav'}),
+        n('sfx', {'file': 'sfx/na_aaa_slip1.wav'}),
+        n('sfx', {'file': 'sfx/na_sup_huh2.wav'}),
+        n('sfx', {'file': 'sfx/na_run1.wav'}),
+        n('sfx', {'file': 'sfx/na_run2.wav'}),
+        n('sfx', {'file': 'sfx/na_step1.wav'}),
+        n('sfx', {'file': 'sfx/na_step2.wav'}),
+        n('sfx', {'file': 'sfx/na_beer1.wav'}),
+        n('sfx', {'file': 'sfx/na_sofa1.wav'}),
+        n('sfx', {'file': 'sfx/na_remote1.wav'}),
+        n('sfx', {'file': 'sfx/obj_close1.wav'}),
+        n('sfx', {'file': 'sfx/obj_open1.wav'}),
+        n('sfx', {'file': 'sfx/wod_saw2.wav'}),
+        n('sfx', {'file': 'sfx/wod_step1a.wav'}),
+        n('sfx', {'file': 'sfx/wod_step2a.wav'}),
+        n('sfx', {'file': 'sfx/wod_laugh1.wav'}),
+        n('sfx', {'file': 'sfx/wod_swish1.wav'}),
+        n('sfx', {'file': 'sfx/wod_swish2.wav'}),
+        n('sfx', {'file': 'sfx/na_getsup1.wav'}),
+        n('sfx', {'file': 'sfx/na_hands1.wav'}),
+        n('sfx', {'file': 'sfx/na_sitsdown1.wav'}),
+        n('sfx', {'file': 'sfx/na_sofa2.wav'}),
+        n('sfx', {'file': 'sfx/na_shock_bah1.wav'}),
+        n('sfx', {'file': 'sfx/na_brrr1.wav'}),
+        n('sfx', {'file': 'sfx/obj_toi_flush11.wav'}),
+        n('sfx', {'file': 'sfx/obj_tv_on2.wav', 'volume': '40'}),
+        n('sfx', {'file': 'sfx/obj_tv_twisted1.wav', 'volume': '40'}),
+        n('sfx', {'file': 'sfx/obj_micro_beep1.wav'}),
+    ]),
+]
