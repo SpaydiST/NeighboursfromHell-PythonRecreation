@@ -1,0 +1,9 @@
+# -*- coding: utf-8 -*-
+# Generated from tricks.xml by tools/xml2py.py - do not edit by hand.
+from nfh.node import n
+
+ROOTS = [
+    n('tricks', {}, [
+        n('trick', {'name': 'marbles', 'quota1': '100', 'quota2': '0', 'quota3': '0', 'quota4': '0'}),
+    ]),
+]
