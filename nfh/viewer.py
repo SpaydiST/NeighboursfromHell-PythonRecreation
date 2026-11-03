@@ -16,6 +16,7 @@ Controls
 """
 from __future__ import annotations
 import argparse
+import io
 import os
 import sys
 
@@ -29,6 +30,8 @@ from nfh.assets import SoundBank, SpriteBank
 from nfh.engine import World
 from nfh.render import render_world
 from nfh.ui import Hud
+from nfh import data as game_data
+from nfh.source import Source, find_data_dir
 from nfh.menu import Menu, Progress
 from nfh import level_sets
 
@@ -112,7 +115,7 @@ class Viewer:
             for p in self.sounds.music():
                 if "ingame1_normal" in p:
                     try:
-                        pygame.mixer.music.load(p)
+                        pygame.mixer.music.load(io.BytesIO(self.sounds.read(p)), "mp3")
                         pygame.mixer.music.play(-1)
                     except pygame.error:
                         pass
@@ -127,7 +130,7 @@ class Viewer:
         if snd is None and name not in self.sound_cache:
             path = self.sounds.path(name)
             try:
-                snd = pygame.mixer.Sound(path) if path else None
+                snd = pygame.mixer.Sound(file=io.BytesIO(self.sounds.read(path))) if path else None
             except pygame.error:
                 snd = None
             self.sound_cache[name] = snd
@@ -413,32 +416,45 @@ def _scan(roots, depth=4):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Neighbours From Hell viewer")
-    ap.add_argument("--png", help="folder with the PNG sprites (the one that directly contains anc/, kit/, gui/ ...)")
-    ap.add_argument("--tga", help="folder with the original .tga sprites (gfxdata)")
-    ap.add_argument("--sfx", help="sound folder (sfxdata or sfxdatahigh); default: sfxdatahigh if found")
+    ap.add_argument("--game", help="the original game's data folder (the one with gamedata.bnd, gfxdata.bnd, "
+                                   "sfxdata.bnd); XML, sprites and sounds are then read from the originals")
+    ap.add_argument("--png", help="folder with PNG sprites (preferred over the originals' .tga)")
+    ap.add_argument("--tga", help="folder or .bnd with the original .tga sprites (gfxdata)")
+    ap.add_argument("--sfx", help="folder or .bnd with the sounds (sfxdata / sfxdatahigh)")
+    ap.add_argument("--no-original", action="store_true", help="do not look for an installed original game")
     ap.add_argument("--level", default="level_pig")
     ap.add_argument("--size", default="1280x760")
     a = ap.parse_args(argv)
     here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
     roots = [os.getcwd(), here, os.path.dirname(here)]
     f_png, f_tga, f_sfx = _scan(roots)
+
+    src = None
+    if not a.no_original:
+        d = find_data_dir(a.game)
+        if a.game and d is None:
+            sys.exit(f"--game: no gamedata.bnd found in {os.path.abspath(a.game)} (or its data/ folder)")
+        if d:
+            src = Source(d)
+            game_data.use(src)                         # all XML now comes from the original gamedata.bnd
+
     png = a.png or (f_png[0] if f_png else None)
-    tga = a.tga or (f_tga[0] if f_tga else None)
-    sfx = a.sfx
+    tga = a.tga or (src.gfx if src and src.gfx else (f_tga[0] if f_tga else None))
+    sfx = a.sfx or (src.sfx if src and src.sfx else None)
     if not sfx and f_sfx:
         sfx = next((p for p in f_sfx if "high" in os.path.basename(p).lower()), f_sfx[0])
     for label, path in (("png", png), ("tga", tga)):
-        if path and not os.path.isdir(path):
-            sys.exit(f"--{label} folder does not exist: {os.path.abspath(path)}")
+        if path and not os.path.exists(path):
+            sys.exit(f"--{label} does not exist: {os.path.abspath(path)}")
     if not png and not tga:
         sys.exit("No sprites found.\n"
-                 "Searched (4 levels deep) in:\n  " + "\n  ".join(roots) + "\n"
-                 "Unzip NFH1.zip (and/or gfxdata.zip) somewhere, then run:\n"
-                 "  python play.py --png <folder that directly contains anc, kit, gui, house ...>\n"
-                 "Tip: for NFH1.zip that is usually the inner NFH1/NFH1 folder.")
-    print("sprites (png):", png, "\nsprites (tga):", tga, "\nsounds:", sfx)
+                 "Point the viewer at the original game:  python play.py --game <folder with gamedata.bnd>\n"
+                 "or at unpacked sprites:  python play.py --png <folder that directly contains anc, kit, gui ...>\n"
+                 "Searched (4 levels deep) in:\n  " + "\n  ".join(roots))
+    print("data   :", src.dir if src else "bundled copies (converted from the editor's basegame mod)")
+    print("sprites:", png or tga, "\nsounds :", sfx)
     w, h = (int(v) for v in a.size.lower().split("x"))
-    Viewer(SpriteBank(png, tga), SoundBank(sfx if sfx and os.path.isdir(sfx) else None), a.level, (w, h)).run()
+    Viewer(SpriteBank(png, tga), SoundBank(sfx if sfx and os.path.exists(sfx) else None), a.level, (w, h)).run()
 
 
 if __name__ == "__main__":
