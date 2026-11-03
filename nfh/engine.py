@@ -153,11 +153,12 @@ class Actor(Entity):
     def __init__(self, *a, **kw):
         super().__init__(*a, **kw)
         self.facing = 2                     # 0 back, 1 right, 2 front, 3 left
+        self.gait = "mg"                    # "mg" walk | "mr" run (the angry neighbour)
         self.script: Optional[Iterator[None]] = None
 
     # speeds from objects.xml: <speed name="mg1" speed="17" .../> (pixels per animation step)
     def speed_of(self, direction: int) -> float:
-        sp = self.objdef.speeds.get(f"mg{direction}") if self.objdef else None
+        sp = self.objdef.speeds.get(f"{self.gait}{direction}") if self.objdef else None
         return float(sp["speed"]) if sp else 6.0
 
     def can_walk(self) -> bool:
@@ -227,7 +228,7 @@ class Actor(Entity):
             if d != cur:
                 cur, self.facing = d, d
                 self.base_anim = f"ms{d}" if f"ms{d}" in self.animations else self.base_anim
-                self.set_anim(f"mg{d}")
+                self.set_anim(f"{self.gait}{d}" if f"{self.gait}{d}" in self.animations else f"mg{d}")
             step = self.speed_of(d)
             dist = (dx * dx + dy * dy) ** 0.5
             if dist <= step:

@@ -13,6 +13,8 @@ from typing import List, Optional, Set
 STAY = (3.0, 7.0)               # seconds he lingers in a room
 SPOT_DIST = 170                 # Woody is seen when he is this close (px) and not hidden
 CAUGHT_WAIT = 2.5               # seconds until the level restarts after Woody was caught
+ANIM_FPS = 12.0                 # same as engine.ANIM_FPS (angrytime is counted in animation steps)
+NEAR = 90                       # px: "nearobj" triggers (the banana peel)
 REACT = ("shout0", "doubletake1", "surprise", "shout0_medium", "shout2")
 
 
@@ -24,6 +26,9 @@ class NeighborAI:
         self.victims: Set[str] = set()            # tricks he has already fallen for
         self.noise_room: Optional[str] = None
         self.caught = 0.0
+        self.angry = 0.0                          # seconds of rage left (he runs and hunts Woody)
+        lay = world.level.layout
+        self.level_angry = (lay.angrytime if lay else 0) / ANIM_FPS
         self.triggers = world.level.triggers.get("neighbor", {})
 
     # ---- events from the world -----------------------------------------------------------
@@ -38,6 +43,44 @@ class NeighborAI:
                     if a.get("position") == "house" or a.get("position") == "room" and room == self.actor.room:
                         self.noise_room = room
                         return
+
+    def _enrage(self, steps=None):
+        secs = (steps / ANIM_FPS) if steps else self.level_angry
+        self.angry = max(self.angry, secs)
+        self.actor.gait = "mr"
+
+    def _near_trap(self):
+        """trigger.xml "nearobj": he steps on something lying in the room (the banana peel) and slips."""
+        a = self.actor
+        for beh, trigs in self.triggers.items():
+            for t in trigs:
+                obj = t.attrs.get("object")
+                if t.attrs.get("position") != "nearobj" or not obj or obj in self.victims or obj not in self.w.tricks:
+                    continue
+                e = self.w.entity_named(obj, a.room)
+                if e is not None and abs(e.x - a.x) < NEAR and abs(e.y - a.y) < NEAR:
+                    return obj
+        return None
+
+    def _slip(self, obj: str):
+        self.victims.add(obj)
+        trick = self.w.level.tricks.get(obj)
+        self.w.score += trick.quotas[0] if trick else 0
+        self._enrage(trick.angrytime if trick and trick.angrytime else None)
+        name = "slip3" if self.actor.facing == 3 else "slip1"
+        if self._anim_ok(name):
+            yield from self._play(name)
+        for _ in range(12):
+            yield
+
+    def _hunt(self):
+        """Angry: run to Woody's room and look around."""
+        a, wd = self.actor, self.w.woody
+        if wd is None or wd.room not in self.w.rooms:
+            return
+        yield from a._go(wd.room, *self._centre(wd.room))
+        if a.room == wd.room and self._anim_ok("search"):
+            yield from self._play("search")
 
     # ---- helpers ---------------------------------------------------------------------------
     def _trick_rooms(self) -> List[str]:
@@ -73,6 +116,7 @@ class NeighborAI:
             self.victims.add(t)
             trick = self.w.level.tricks.get(t)
             self.w.score += trick.quotas[0] if trick else 0
+            self._enrage(trick.angrytime if trick and trick.angrytime else None)
             anim = "slip1" if "banana" in t and self._anim_ok("slip1") else \
                 next((n for n in random.sample(REACT, len(REACT)) if self._anim_ok(n)), None)
             if anim:
@@ -101,11 +145,22 @@ class NeighborAI:
             return
         wd = w.woody
         if (wd is not None and wd.visible and wd.hiding is None and wd.room == a.room and not a.locked
-                and abs(wd.x - a.x) < SPOT_DIST and abs(wd.y - a.y) < SPOT_DIST * 0.6):
+                and abs(wd.x - a.x) < SPOT_DIST * (1.5 if self.angry > 0 else 1) and abs(wd.y - a.y) < SPOT_DIST * 0.6):
             a.script = self._catch()
             self.caught = CAUGHT_WAIT
             return
+        if self.angry > 0:
+            self.angry -= dt
+            if self.angry <= 0:
+                self.angry, a.gait = 0.0, "mg"
+        trap = self._near_trap()
+        if trap:
+            a.script = self._slip(trap)
+            return
         if a.busy:
+            return
+        if self.angry > 0 and wd is not None and wd.room != a.room:
+            a.script = self._hunt()
             return
         if self.noise_room is not None:
             room, self.noise_room = self.noise_room, None
