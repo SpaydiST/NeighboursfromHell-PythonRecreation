@@ -14,6 +14,7 @@ from typing import Dict, Iterator, List, Optional, Tuple
 
 from .model import LevelData, Placement, Room, load_level
 from .assets import SpriteBank
+from .neighbor import NeighborAI
 
 ANIM_FPS = 12.0                 # animation steps per second (assumption: the XML does not say)
 
@@ -427,6 +428,8 @@ class World:
         self.tricks: List[str] = []                 # combinations ("tricks") prepared so far
         self.message: Optional[list] = None         # [text, seconds left] shown as Woody's comment
         self.view_hint: Optional[str] = None
+        self.score = 0                              # points of the tricks the neighbour fell for
+        self.caught = False                         # the neighbour caught Woody -> restart the level
         self._acc = 0.0
         self._off_cache: Dict[str, Dict[str, Tuple[int, int]]] = {}
         order = 0
@@ -439,6 +442,7 @@ class World:
                     self.entities.append(self._make(p, room.name, room.offset, order)); order += 1
         self.woody: Optional[Actor] = next((e for e in self.entities
                                             if isinstance(e, Actor) and e.name == "woody"), None)
+        self.ai = NeighborAI(self)
 
     # ---- construction ----------------------------------------------------------------
     def offsets(self, cls: str) -> Dict[str, Tuple[int, int]]:
@@ -621,6 +625,7 @@ class World:
                 self.spawn(combo.name, res_room, layer if layer is not None else 3, combo.animation)
         if combo.trick and combo.name not in self.tricks:
             self.tricks.append(combo.name)
+        self.ai.noise(room, 1)
         txt = self.level.text(combo.name, "description")
         if txt:
             self.say(txt)
@@ -638,6 +643,7 @@ class World:
             self._acc -= 1.0
             for e in self.entities:
                 e.tick()
+        self.ai.update(dt)
 
     def drain_sounds(self) -> List[Tuple[str, Optional[str]]]:
         s, self.sounds = self.sounds, []

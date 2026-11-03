@@ -283,8 +283,7 @@ class Viewer:
             info = f"{self.selected.label()}   anim: {self.selected.anim}  next: {cur}  (, . Enter)"
         else:
             info = "Click to walk, open, look. Pick an item, then click an object."
-        total = max(1, len(w.level.tricks))
-        progress = len(w.tricks) / total
+        progress = min(1.0, w.score / 100.0)
         mood = 1 + min(3, int(progress * 4))
         name = self.names[self.level_idx] + ("  [paused]" if w.paused else "")
         self.hud.draw(self.screen, w.inventory, self.item, info, progress, mood, pygame.mouse.get_pos(), name)
@@ -336,6 +335,9 @@ class Viewer:
                     self.view_h = min(max(self.view_h * (0.9 if ev.y > 0 else 1.1), 300), 995)
             w = self.world
             w.update(dt)
+            if w.caught:
+                self._load()
+                continue
             if self.follow and self.mode == "camera":          # smooth scrolling after Woody
                 tx, ty = self._woody_point()
                 k = min(1.0, dt * 4)
