@@ -28,10 +28,10 @@ from nfh import level_names, load_game, load_level
 from nfh.assets import SoundBank, SpriteBank
 from nfh.engine import World
 from nfh.render import render_world
+from nfh.ui import Hud
 
-HUD_H = 56
-BAR_H = 72                         # inventory bar at the bottom
-SLOT_W = 84
+HUD_H = 0                          # the level fills the window; the interface (nfh.ui.Hud) overlays its bottom edge
+BAR_H = 0
 VIEW_H = 640                       # level pixels shown vertically (the original shows ~800x600)
 
 
@@ -55,6 +55,8 @@ class Viewer:
         self.clock = pygame.time.Clock()
         self.font = pygame.font.SysFont(None, 22)
         self.big = pygame.font.SysFont(None, 28)
+        self.small = pygame.font.SysFont(None, 19)
+        self.hud = Hud(bank, self.font, self.small)
         self.sound_cache = {}
         self.music_on = False
         self.follow = True
@@ -136,32 +138,16 @@ class Viewer:
         return (self.origin[0] + (x - self.rect[0]) * self.scale,
                 self.origin[1] + (y - self.rect[1]) * self.scale)
 
-    def _icon(self, item: str, state: str):
-        key = (item, state)
-        if key not in self.icon_cache:
-            img = self.bank.get(f"I_{item}_{state}", "gui/inv")
-            if img is None and state != "norm":
-                img = self.bank.get(f"I_{item}_norm", "gui/inv")
-            self.icon_cache[key] = (pygame.image.frombuffer(img.tobytes(), img.size, "RGBA")
-                                    if img is not None else None)
-        return self.icon_cache[key]
-
-    def _slots(self):
-        """[(item, (x, y, w, h))] of the inventory bar."""
-        sw, sh = self.screen.get_size()
-        return [(it, (10 + i * SLOT_W, sh - BAR_H + 6, 75, 57))
-                for i, it in enumerate(self.world.inventory)]
+    def _in_hud(self, pos):
+        return self.hud.zone(*self.screen.get_size()).collidepoint(pos)
 
     def _slot_at(self, pos):
-        for it, (x, y, w, h) in self._slots():
-            if x <= pos[0] < x + w and y <= pos[1] < y + h:
-                return it
-        return None
+        return self.hud.slot_at(self.world.inventory, pos, *self.screen.get_size())
 
     def _hover_label(self, pos):
         """Text like "Open fridge" / "Use chips with cookie box" for the thing under the mouse."""
         w = self.world
-        if pos[1] >= self.screen.get_height() - BAR_H or pos[1] < HUD_H:
+        if self._in_hud(pos):
             return ""
         x, y = self._to_level(*pos)
         room = w.room_at(x, y)
@@ -193,11 +179,9 @@ class Viewer:
         w = self.world
         wd = w.woody
         sh = self.screen.get_height()
-        if pos[1] >= sh - BAR_H:                              # inventory bar
+        if self._in_hud(pos):                                 # interface: inventory tray
             it = self._slot_at(pos)
             self.item = None if (it is None or it == self.item) else it
-            return
-        if pos[1] < HUD_H:
             return
         x, y = self._to_level(*pos)
         room = w.room_at(x, y)
@@ -288,24 +272,22 @@ class Viewer:
         self._draw_overlays(sw, sh)
         w = self.world
         wd = w.woody
-        title = f"{self.names[self.level_idx]}   Woody: {wd.room if wd else '-'}" \
-                f"   {'overview' if self.mode == 'overview' else 'camera ' + ('follows' if self.follow else 'free')}"
-        title += "   [paused]" if w.paused else ""
-        self.screen.blit(self.big.render(title, True, (240, 240, 240)), (10, 6))
         hover = self._hover_label(pygame.mouse.get_pos())
         if hover:
             info = hover
         elif self.item:
-            info = f"Use {w.item_name(self.item)} with ...  (click an object or the floor, right click cancels)"
+            info = f"Use {w.item_name(self.item)} with ...   (right click cancels)"
         elif self.selected is not None:
             names = self.selected.anim_names()
             cur = names[self.sel_anim % len(names)] if names else "-"
-            info = f"{self.selected.label()} ({self.selected.kind})  playing: {self.selected.anim}   " \
-                   f"next animation: {cur}  (, . change, Enter play)"
+            info = f"{self.selected.label()}   anim: {self.selected.anim}  next: {cur}  (, . Enter)"
         else:
-            info = "click: walk / door / open / look   inventory: click an item, then an object   " \
-                   "arrows: scroll  C: follow  wheel: zoom  Tab: overview  PgUp/PgDn: level  M: music"
-        self.screen.blit(self.font.render(info, True, (190, 190, 200)), (10, 34))
+            info = "Click to walk, open, look. Pick an item, then click an object."
+        total = max(1, len(w.level.tricks))
+        progress = len(w.tricks) / total
+        mood = 1 + min(3, int(progress * 4))
+        name = self.names[self.level_idx] + ("  [paused]" if w.paused else "")
+        self.hud.draw(self.screen, w.inventory, self.item, info, progress, mood, pygame.mouse.get_pos(), name)
         pygame.display.flip()
 
     def _wrap(self, text, width):
@@ -321,26 +303,12 @@ class Viewer:
 
     def _draw_overlays(self, sw, sh):
         w = self.world
-        # inventory bar
-        pygame.draw.rect(self.screen, (34, 30, 28), (0, sh - BAR_H, sw, BAR_H))
-        mouse = pygame.mouse.get_pos()
-        for it, (x, y, iw, ih) in self._slots():
-            hov = x <= mouse[0] < x + iw and y <= mouse[1] < y + ih
-            state = "pres" if it == self.item else ("hov" if hov else "norm")
-            icon = self._icon(it, state)
-            if icon is not None:
-                self.screen.blit(icon, (x, y))
-            if it == self.item:
-                pygame.draw.rect(self.screen, (255, 220, 60), (x - 2, y - 2, iw + 4, ih + 4), 2)
-        if not w.inventory:
-            self.screen.blit(self.font.render("inventory is empty - open containers to find items",
-                                              True, (140, 140, 150)), (14, sh - BAR_H + 24))
         # Woody's comment
         if w.message:
             lines = self._wrap(w.message[0], max(200, sw - 120))
             lh = 30
             bw = max(self.big.size(l)[0] for l in lines) + 28
-            bx, by = (sw - bw) // 2, HUD_H + 8
+            bx, by = (sw - bw) // 2, 14
             pygame.draw.rect(self.screen, (250, 246, 225), (bx, by, bw, lh * len(lines) + 12))
             pygame.draw.rect(self.screen, (60, 50, 40), (bx, by, bw, lh * len(lines) + 12), 2)
             for i, l in enumerate(lines):
@@ -361,6 +329,9 @@ class Viewer:
                     self._click(ev.pos)
                 elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 3:
                     self.item = None
+                elif wheel is not None and ev.type == wheel and self.hud.wheel(
+                        self.world.inventory, pygame.mouse.get_pos(), *self.screen.get_size(), ev.y):
+                    pass
                 elif wheel is not None and ev.type == wheel:
                     self.view_h = min(max(self.view_h * (0.9 if ev.y > 0 else 1.1), 300), 995)
             w = self.world
@@ -376,50 +347,6 @@ class Viewer:
                     self._play(snd)
             self._draw()
         pygame.quit()
-
-
-def _scan(roots, depth=4):
-    """Yield every directory below `roots` (breadth first, limited depth)."""
-    seen = set()
-    for root in roots:
-        root = os.path.abspath(root)
-        queue = [(root, 0)]
-        while queue:
-            d, lvl = queue.pop(0)
-            if d in seen or not os.path.isdir(d):
-                continue
-            seen.add(d)
-            yield d
-            if lvl >= depth:
-                continue
-            try:
-                for name in sorted(os.listdir(d)):
-                    if name.startswith(".") or name in ("__pycache__", "nfh", "tools", "examples"):
-                        continue
-                    queue.append((os.path.join(d, name), lvl + 1))
-            except OSError:
-                pass
-
-
-def discover(png=None, tga=None, sfx=None):
-    """Resolve the asset folders: explicit arguments first, then search around the current folder
-    and the project folder (so nested folders like NFH1/NFH1 and unzipped archives are found)."""
-    project = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    explicit = [p for p in (png, tga, sfx) if p]
-    roots = explicit + [os.getcwd(), project, os.path.dirname(project)]
-    found = {"png": None, "tga": None, "sfx": None}
-    wanted_png, wanted_tga, wanted_sfx = png, tga, sfx
-    for d in _scan(roots):
-        kind = _sprite_kind(d)
-        if kind and not found[kind]:
-            found[kind] = d
-        if _sound_root(d):
-            if not found["sfx"] or ("high" in os.path.basename(d).lower()
-                                    and "high" not in os.path.basename(found["sfx"]).lower()):
-                found["sfx"] = d
-        if all(found.values()) and not explicit:
-            break
-    return found
 
 
 def _scan(roots, depth=4):
