@@ -29,6 +29,8 @@ from nfh.assets import SoundBank, SpriteBank
 from nfh.engine import World
 from nfh.render import render_world
 from nfh.ui import Hud
+from nfh.menu import Menu, Progress
+from nfh import level_sets
 
 HUD_H = 0                          # the level fills the window; the interface (nfh.ui.Hud) overlays its bottom edge
 BAR_H = 0
@@ -62,11 +64,15 @@ class Viewer:
         self.follow = True
         self.view_h = VIEW_H
         self.icon_cache = {}
+        self.info = {l.name: l for st in level_sets() for l in st.levels}
+        self.menu = Menu(bank, Progress(os.path.join(os.path.expanduser("~"), ".nfh_python")))
+        self.state = "menu"                       # menu | game
         self._load()
 
     # ---- level handling -----------------------------------------------------
     def _load(self):
         w = self.world = World(load_level(self.names[self.level_idx]), self.bank)
+        self.elapsed = 0.0
         self.mode = "camera"                      # camera (scrolling, follows Woody) | overview
         self.selected = None
         self.sel_anim = 0
@@ -80,6 +86,17 @@ class Viewer:
             door = w.door("fro/anc")              # intro: Woody walks into the house
             if door is not None and w.woody.room == "fro":
                 w.woody.use_door(door)
+
+    def _level_over(self) -> bool:
+        """Time is up (leveldata `time` in animation steps) or every point is earned -> results screen."""
+        info = self.info.get(self.names[self.level_idx])
+        limit = (info.time / 12.0) if info and info.time else 0
+        if self.world.score >= 100 or (limit and self.elapsed >= limit):
+            self.menu.show_result(self.names[self.level_idx], min(100, int(self.world.score)),
+                                  info.minquota if info else 0)
+            self.menu.started, self.state = False, "menu"
+            return True
+        return False
 
     def _woody_point(self):
         wd = self.world.woody
@@ -217,7 +234,8 @@ class Viewer:
         K = pygame
         w = self.world
         if key == K.K_ESCAPE:
-            return False
+            self.menu.started, self.menu.page, self.state = True, "main", "menu"
+            return True
         if key == K.K_TAB:
             self.mode = "camera" if self.mode == "overview" else "overview"
         elif key == K.K_RIGHT:
@@ -322,6 +340,16 @@ class Viewer:
             for ev in pygame.event.get():
                 if ev.type == pygame.QUIT:
                     running = False
+                elif self.state == "menu":
+                    act = self.menu.event(ev)
+                    if act and act[0] == "quit":
+                        running = False
+                    elif act and act[0] == "resume":
+                        self.state = "game"
+                    elif act and act[0] == "start":
+                        self.level_idx = self.names.index(act[1])
+                        self._load()
+                        self.menu.started, self.state = True, "game"
                 elif ev.type == pygame.KEYDOWN:
                     running = self._key(ev.key) and running
                 elif ev.type == pygame.MOUSEBUTTONDOWN and ev.button == 1:
@@ -333,8 +361,16 @@ class Viewer:
                     pass
                 elif wheel is not None and ev.type == wheel:
                     self.view_h = min(max(self.view_h * (0.9 if ev.y > 0 else 1.1), 300), 995)
+            if self.state == "menu":
+                self.menu.draw(self.screen)
+                pygame.display.flip()
+                continue
             w = self.world
             w.update(dt)
+            if not w.paused:
+                self.elapsed += dt
+            if self._level_over():
+                continue
             if w.caught:
                 self._load()
                 continue
